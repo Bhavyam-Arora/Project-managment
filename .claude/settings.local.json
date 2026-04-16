@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(psql --version)",
+      "Bash(brew list:*)",
+      "Bash(brew services:*)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -U postgres -c '\\\\l')",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -U $USER -c '\\\\l')",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -h localhost -U postgres -c '\\\\l')",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -h localhost -U $USER -c '\\\\l')",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/pg_ctl status:*)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/pg_ctl start:*)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -h localhost -p 5432 -U $USER -c '\\\\l')",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -h localhost -p 5432 -U $USER postgres -c '\\\\l')",
+      "Read(//private/tmp/**)",
+      "Bash(brew reinstall:*)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -U $USER postgres -c \"SELECT version\\(\\);\")",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -U $USER postgres -c \"\n  DO \\\\$\\\\$\n  BEGIN\n    IF NOT EXISTS \\(SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgres'\\) THEN\n      CREATE ROLE postgres WITH LOGIN PASSWORD 'postgres' SUPERUSER;\n    END IF;\n  END\n  \\\\$\\\\$;\n  CREATE DATABASE pm_platform OWNER postgres;\n  CREATE DATABASE pm_platform_test OWNER postgres;\n\" 2>&1)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -U $USER postgres -c \"DO $$ BEGIN IF NOT EXISTS \\(SELECT FROM pg_catalog.pg_roles WHERE rolname = ''postgres''\\) THEN CREATE ROLE postgres WITH LOGIN PASSWORD ''postgres'' SUPERUSER; END IF; END $$;\")",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/createdb -U $USER pm_platform)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/createdb -U $USER pm_platform_test)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -U $USER postgres -c \"ALTER DATABASE pm_platform OWNER TO postgres; ALTER DATABASE pm_platform_test OWNER TO postgres;\")",
+      "Bash(npm run:*)",
+      "Bash(docker --version)",
+      "Read(//Applications/**)",
+      "Bash(docker info:*)",
+      "Bash(pkill -f \"node src/server\")",
+      "Bash(npm test:*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}
