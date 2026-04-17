@@ -26,7 +26,6 @@
  *               title:        { type: string, example: Fix login bug }
  *               description:  { type: string }
  *               priority:     { type: string, enum: [low, medium, high, critical] }
- *               status_id:    { type: string, format: uuid }
  *               assignee_id:  { type: string, format: uuid }
  *               sprint_id:    { type: string, format: uuid }
  *               parent_id:    { type: string, format: uuid }
