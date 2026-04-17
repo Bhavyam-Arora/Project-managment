@@ -158,6 +158,18 @@ describe('Issues', () => {
     expect(res.body.error.code).toBe('NOT_A_MEMBER');
   });
 
+  test('TC-I16 create issue with status_id of Done always lands in first status column', async () => {
+    const doneStatus = statuses[3]; // Done
+    const res = await request(app)
+      .post(`/api/projects/${project.id}/issues`)
+      .set(authHeader(token))
+      .send({ type: 'task', title: 'Skip To Done Attempt', status_id: doneStatus.id });
+    expect(res.status).toBe(201);
+    // status_id field is stripped by schema — issue lands at position 0 (To Do)
+    expect(res.body.data.status_id).toBe(statuses[0].id);
+    expect(res.body.data.status_id).not.toBe(doneStatus.id);
+  });
+
   test('TC-I15 PATCH with status_id does not bypass workflow — status unchanged', async () => {
     const issue = await createTestIssue(token, project.id, { title: 'Bypass Attempt', status_id: statuses[0].id });
     const originalStatusId = statuses[0].id;

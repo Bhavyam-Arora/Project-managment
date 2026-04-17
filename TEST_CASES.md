@@ -1,6 +1,6 @@
 # Test Cases — Project Management Platform API
 
-**Total Tests:** 85
+**Total Tests:** 86
 **Test Suites:** 7
 **Status:** All Passing ✅
 **Framework:** Jest + Supertest
@@ -14,7 +14,7 @@
 |---|-------|-------------|--------|
 | 1 | Authentication | 14 | ✅ Pass |
 | 2 | Projects | 15 | ✅ Pass |
-| 3 | Issues | 15 | ✅ Pass |
+| 3 | Issues | 16 | ✅ Pass |
 | 4 | Workflow Engine | 10 | ✅ Pass |
 | 5 | Sprints | 11 | ✅ Pass |
 | 6 | Comments | 11 | ✅ Pass |
@@ -84,6 +84,7 @@
 | TC-I13 | Non-member cannot create issue | `POST /api/projects/:id/issues` by a user not in the project | HTTP 403 — error code `NOT_A_MEMBER` | Negative | ✅ Pass |
 | TC-I14 | Create subtask with parent_id | `POST /api/projects/:id/issues` with `type: "subtask"` and `parent_id` set | HTTP 201 — `parent_id` matches the parent issue's ID | Positive | ✅ Pass |
 | TC-I15 | PATCH with status_id cannot bypass workflow | `PATCH /api/issues/:id` with `status_id` of Done (no direct transition rule) | HTTP 200 but `status_id` unchanged — field stripped by schema | Security | ✅ Pass |
+| TC-I16 | Create issue with status_id of Done lands in first column | `POST /api/projects/:id/issues` with `status_id` of Done | HTTP 201 — issue created in position 0 status (To Do), Done status_id ignored | Security | ✅ Pass |
 
 ---
 
@@ -166,7 +167,8 @@
 | EC-04 | Cursor pagination with concurrent inserts | New issues inserted between page 1 and page 2 fetch | Pages have no duplicates but newly inserted items before the cursor are missed on prior pages (accepted keyset trade-off) |
 | EC-05 | Self-mention notification | A user posts a comment @mentioning their own display_name | A `mention` notification is created for the author themselves (no self-suppression by design) |
 | EC-06 | Soft-deleted comment mention records | Comment is soft-deleted after being posted with an @mention | `comment_mentions` row persists in DB; mention notification already sent is not retracted |
-| EC-07 | Mass assignment — status_id bypass (fixed) | `PATCH /api/issues/:id` previously accepted `status_id` in the request body, allowing direct status changes that bypassed all workflow transition rules, validation rules, and auto actions | **Fixed:** `status_id` removed from `updateIssueSchema`. Status can now only be changed via `POST /api/issues/:id/transitions` |
+| EC-07 | Mass assignment — status_id bypass on PATCH (fixed) | `PATCH /api/issues/:id` previously accepted `status_id` in the request body, allowing direct status changes that bypassed all workflow transition rules, validation rules, and auto actions | **Fixed:** `status_id` removed from `updateIssueSchema`. Status can now only be changed via `POST /api/issues/:id/transitions` |
+| EC-08 | Workflow skip on issue creation (fixed) | `POST /api/projects/:id/issues` previously accepted `status_id`, allowing a new issue to be created directly in Done or any status, skipping the entire workflow | **Fixed:** `status_id` removed from `createIssueSchema`. New issues always start at the first status column (position 0) |
 
 ---
 
@@ -205,5 +207,5 @@ npm test
 
 # Expected output
 Test Suites: 7 passed, 7 total
-Tests:       85 passed, 85 total
+Tests:       86 passed, 86 total
 ```

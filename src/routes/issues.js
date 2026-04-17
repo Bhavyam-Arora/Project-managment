@@ -164,7 +164,7 @@ const createIssueSchema = z.object({
   type: z.enum(['epic', 'story', 'task', 'bug', 'subtask']),
   title: z.string().min(1).max(500),
   description: z.string().optional(),
-  status_id: z.string().uuid().optional(),
+  // status_id intentionally excluded — new issues always start at position 0 (first status column)
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   assignee_id: z.string().uuid().optional(),
   sprint_id: z.string().uuid().optional(),
