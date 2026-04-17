@@ -15,7 +15,9 @@ describe('Sprints', () => {
     statuses = await createTestStatuses(token, project.id);
   });
 
-  test('create sprint returns auto-calculated dates', async () => {
+  // ── Existing tests ──────────────────────────────────────────────────────────
+
+  test('TC-S01 create sprint returns auto-calculated dates', async () => {
     const res = await request(app)
       .post(`/api/projects/${project.id}/sprints`)
       .set(authHeader(token))
@@ -26,26 +28,22 @@ describe('Sprints', () => {
     expect(res.body.data.sprint_number).toBe(1);
   });
 
-  test('create second sprint start_date follows first end_date', async () => {
+  test('TC-S02 create second sprint start_date follows first end_date', async () => {
     const proj = await createTestProject(token);
     await createTestStatuses(token, proj.id);
     const s1 = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
-    // Complete first sprint
     await request(app).post(`/api/sprints/${s1.body.data.id}/start`).set(authHeader(token));
     await request(app).post(`/api/sprints/${s1.body.data.id}/complete`).set(authHeader(token)).send({ carry_over_issue_ids: [] });
-
     const s2 = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
     expect(s2.status).toBe(201);
-    // Parse dates as UTC YYYY-MM-DD strings (postgres DATE columns come back as ISO strings)
-    const s1EndDate = s1.body.data.end_date.slice(0, 10);
+    const s1EndDate  = s1.body.data.end_date.slice(0, 10);
     const s2StartDate = s2.body.data.start_date.slice(0, 10);
-    // s2 start should be exactly 1 day after s1 end
     const [y, m, d] = s1EndDate.split('-').map(Number);
     const dayAfter = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
     expect(s2StartDate).toBe(dayAfter);
   });
 
-  test('start sprint sets status to active', async () => {
+  test('TC-S03 start sprint sets status to active', async () => {
     const proj = await createTestProject(token);
     await createTestStatuses(token, proj.id);
     const sprint = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
@@ -54,7 +52,7 @@ describe('Sprints', () => {
     expect(res.body.data.status).toBe('active');
   });
 
-  test('start second sprint when one is active returns 422 SPRINT_ALREADY_ACTIVE', async () => {
+  test('TC-S04 start second sprint when one is active returns 422 SPRINT_ALREADY_ACTIVE', async () => {
     const proj = await createTestProject(token);
     await createTestStatuses(token, proj.id);
     const s1 = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
@@ -65,7 +63,7 @@ describe('Sprints', () => {
     expect(res.body.error.code).toBe('SPRINT_ALREADY_ACTIVE');
   });
 
-  test('complete sprint calculates velocity from done story_points', async () => {
+  test('TC-S05 complete sprint calculates velocity from done story_points', async () => {
     const proj = await createTestProject(token);
     const sts = await createTestStatuses(token, proj.id);
     await createTestTransitions(token, proj.id, sts);
@@ -74,14 +72,11 @@ describe('Sprints', () => {
     const sprint = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
     await request(app).post(`/api/sprints/${sprint.body.data.id}/start`).set(authHeader(token));
 
-    // Create done issue with 3 points
     const issue = await createTestIssue(token, proj.id, { title: 'Done Issue', status_id: byName('To Do').id, story_points: 3 });
     await request(app).post(`/api/sprints/${sprint.body.data.id}/issues`).set(authHeader(token)).send({ issue_ids: [issue.id] });
 
     const memberId = (await request(app).get(`/api/projects/${proj.id}`).set(authHeader(token))).body.data.members[0].user_id;
-    // Move to done via transitions
     await request(app).post(`/api/issues/${issue.id}/transitions`).set(authHeader(token)).send({ to_status_id: byName('In Progress').id });
-    // Fetch current version after transition, then assign
     const current = await request(app).get(`/api/issues/${issue.id}`).set(authHeader(token));
     await request(app).patch(`/api/issues/${issue.id}`).set(authHeader(token)).send({ version: current.body.data.version, assignee_id: memberId });
     await request(app).post(`/api/issues/${issue.id}/transitions`).set(authHeader(token)).send({ to_status_id: byName('In Review').id });
@@ -92,7 +87,7 @@ describe('Sprints', () => {
     expect(res.body.data.velocity).toBe(3);
   });
 
-  test('complete sprint with carry_over_ids sets sprint_id to null', async () => {
+  test('TC-S06 complete sprint with carry_over_ids sets sprint_id to null', async () => {
     const proj = await createTestProject(token);
     const sts = await createTestStatuses(token, proj.id);
     const byName = (name) => sts.find(s => s.name === name);
@@ -109,8 +104,77 @@ describe('Sprints', () => {
       .send({ carry_over_issue_ids: [issue.id] });
 
     expect(res.status).toBe(200);
-    // Issue should now be in backlog (sprint_id = null)
     const issueRes = await request(app).get(`/api/issues/${issue.id}`).set(authHeader(token));
     expect(issueRes.body.data.sprint_id).toBeNull();
+  });
+
+  // ── New tests ────────────────────────────────────────────────────────────────
+
+  test('TC-S07 complete sprint with no done issues returns velocity 0', async () => {
+    const proj = await createTestProject(token);
+    const sts = await createTestStatuses(token, proj.id);
+    const byName = (name) => sts.find(s => s.name === name);
+
+    const sprint = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
+    await request(app).post(`/api/sprints/${sprint.body.data.id}/start`).set(authHeader(token));
+
+    const issue = await createTestIssue(token, proj.id, { title: 'Not Done', status_id: byName('To Do').id, story_points: 5 });
+    await request(app).post(`/api/sprints/${sprint.body.data.id}/issues`).set(authHeader(token)).send({ issue_ids: [issue.id] });
+
+    const res = await request(app)
+      .post(`/api/sprints/${sprint.body.data.id}/complete`)
+      .set(authHeader(token))
+      .send({ carry_over_issue_ids: [] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.velocity).toBe(0);
+  });
+
+  test('TC-S08 list sprints for project returns all sprints', async () => {
+    const proj = await createTestProject(token);
+    await createTestStatuses(token, proj.id);
+    await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
+    await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
+    const res = await request(app)
+      .get(`/api/projects/${proj.id}/sprints`)
+      .set(authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('TC-S09 update sprint name via PATCH returns 200 with new name', async () => {
+    const proj = await createTestProject(token);
+    await createTestStatuses(token, proj.id);
+    const sprint = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
+    const res = await request(app)
+      .patch(`/api/sprints/${sprint.body.data.id}`)
+      .set(authHeader(token))
+      .send({ name: 'Renamed Sprint' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.name).toBe('Renamed Sprint');
+  });
+
+  test('TC-S10 delete sprint sets sprint_id to null for all sprint issues (moves to backlog)', async () => {
+    const proj = await createTestProject(token);
+    const sts = await createTestStatuses(token, proj.id);
+    const byName = (name) => sts.find(s => s.name === name);
+
+    const sprint = await request(app).post(`/api/projects/${proj.id}/sprints`).set(authHeader(token)).send({});
+    const issue = await createTestIssue(token, proj.id, { title: 'Sprint Issue', status_id: byName('To Do').id });
+    await request(app).post(`/api/sprints/${sprint.body.data.id}/issues`).set(authHeader(token)).send({ issue_ids: [issue.id] });
+
+    await request(app).delete(`/api/sprints/${sprint.body.data.id}`).set(authHeader(token));
+
+    const issueRes = await request(app).get(`/api/issues/${issue.id}`).set(authHeader(token));
+    expect(issueRes.body.data.sprint_id).toBeNull();
+  });
+
+  test('TC-S11 non-member cannot list sprints for project returns 403 NOT_A_MEMBER', async () => {
+    const proj = await createTestProject(token);
+    const { token: outsiderToken } = await createTestUser();
+    const res = await request(app)
+      .get(`/api/projects/${proj.id}/sprints`)
+      .set(authHeader(outsiderToken));
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('NOT_A_MEMBER');
   });
 });

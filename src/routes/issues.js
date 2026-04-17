@@ -184,7 +184,7 @@ const updateIssueSchema = z.object({
   version: z.number().int(),
   title: z.string().min(1).max(500).optional(),
   description: z.string().optional(),
-  status_id: z.string().uuid().optional(),
+  // status_id intentionally excluded — use POST /issues/:id/transitions to change status
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   sprint_id: z.string().uuid().nullable().optional(),
