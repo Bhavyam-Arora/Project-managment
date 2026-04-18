@@ -49,29 +49,46 @@ async function createSprint(projectId, userId, data) {
 }
 
 async function startSprint(sprintId, projectId) {
-  const { rows: [active] } = await pool.query(
-    `SELECT id FROM sprints WHERE project_id = $1 AND status = 'active'`,
-    [projectId]
-  );
-  if (active) {
-    throw Object.assign(new Error('A sprint is already active'), { status: 422, code: 'SPRINT_ALREADY_ACTIVE' });
-  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  const { rows: [sprint] } = await pool.query(
-    'SELECT * FROM sprints WHERE id = $1',
-    [sprintId]
-  );
-  if (!sprint.start_date || !sprint.end_date) {
-    throw Object.assign(new Error('Sprint missing dates'), { status: 422, code: 'MISSING_DATES' });
-  }
+    // FOR UPDATE locks all sprints rows for this project until COMMIT.
+    // If another transaction is already inside this block for the same project,
+    // this line will WAIT until that transaction commits — preventing two sprints
+    // from being activated simultaneously.
+    const { rows: [active] } = await client.query(
+      `SELECT id FROM sprints WHERE project_id = $1 AND status = 'active' FOR UPDATE`,
+      [projectId]
+    );
+    if (active) {
+      await client.query('ROLLBACK');
+      throw Object.assign(new Error('A sprint is already active'), { status: 422, code: 'SPRINT_ALREADY_ACTIVE' });
+    }
 
-  const { rows: [updated] } = await pool.query(
-    `UPDATE sprints SET status = 'active', updated_at = NOW() WHERE id = $1 RETURNING *`,
-    [sprintId]
-  );
-  const io = getIO();
-  if (io) io.to(`project:${updated.project_id}`).emit('sprint_updated', { sprint: updated });
-  return updated;
+    const { rows: [sprint] } = await client.query(
+      'SELECT * FROM sprints WHERE id = $1',
+      [sprintId]
+    );
+    if (!sprint.start_date || !sprint.end_date) {
+      await client.query('ROLLBACK');
+      throw Object.assign(new Error('Sprint missing dates'), { status: 422, code: 'MISSING_DATES' });
+    }
+
+    const { rows: [updated] } = await client.query(
+      `UPDATE sprints SET status = 'active', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [sprintId]
+    );
+    await client.query('COMMIT');
+    const io = getIO();
+    if (io) io.to(`project:${updated.project_id}`).emit('sprint_updated', { sprint: updated });
+    return updated;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function completeSprint(sprintId, actorId, carryOverIssueIds = []) {
