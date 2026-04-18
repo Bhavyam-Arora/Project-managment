@@ -30,7 +30,9 @@
       "Bash(pkill -f \"node src/server\")",
       "Bash(npm test:*)",
       "Bash(grep -v \"^$\")",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(TEST_CASES.md:*)",
+      "Bash(git push:*)"
     ]
   }
 }
