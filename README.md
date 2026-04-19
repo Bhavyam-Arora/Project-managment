@@ -1,107 +1,105 @@
 # Project Management Platform — Backend API
 
-A Jira-like project management backend with sprint planning, configurable workflow rules, real-time board updates via WebSocket, and JWT authentication. Built with Node.js, PostgreSQL, and Socket.io.
+A Jira-like project management backend built with Node.js, PostgreSQL, Socket.io, and JWT authentication.
 
 ---
 
-## Prerequisites
+## Local Setup
 
+### Prerequisites
+
+- [Node.js 20+](https://nodejs.org)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
-> That is all you need. Everything else runs inside Docker.
-
----
-
-## Setup
-
-### 1. Clone the Repository
+### Steps
 
 ```bash
+# 1. Clone and install
 git clone https://github.com/yourusername/project-management-backend.git
 cd project-management-backend
-```
+npm install
 
-### 2. Create Environment File
-
-Copy the example file and fill in your values:
-
-```bash
+# 2. Copy the env file and fill in your values
 cp .env.example .env
+
+# 3. Start Docker Desktop, then start the databases
+docker-compose up postgres postgres_test -d
+
+# 4. Run migrations and seed sample data
+npm run migrate
+npm run seed
+
+# 5. Start the server
+npm run dev
 ```
 
-`.env.example` contains:
+Server runs at `http://localhost:3000`
 
-```env
-NODE_ENV=
-PORT=
+Swagger UI at `http://localhost:3000/api-docs`
 
-DB_HOST=
-DB_PORT=
-DB_NAME=
-DB_USER=
-DB_PASSWORD=
-
-JWT_SECRET=
-JWT_EXPIRES_IN=
-CORS_ORIGIN=
-```
-
-### 3. Start Everything
+**Every day after first setup:**
 
 ```bash
-docker-compose up -d
-```
-
-This starts the Node.js app and PostgreSQL database together.
-
-### 4. Run Migrations
-
-```bash
-docker-compose exec app npm run migrate
-```
-
-### 5. Seed Sample Data
-
-```bash
-docker-compose exec app npm run seed
+docker-compose up postgres postgres_test -d
+npm run dev
 ```
 
 ---
 
-## Done
-
-API is running at:
+## How It Works — High Level
 
 ```
-http://localhost:3000
+  Browser / Mobile App
+        |
+        | HTTP REST  +  WebSocket
+        |
+  ┌─────────────────────────────────┐
+  │  Express  +  Socket.io          │
+  │  Auth Middleware (JWT verify)   │
+  │  Project Access Check           │
+  │  Request Validation             │
+  └────────────────┬────────────────┘
+                   │
+  ┌────────────────▼────────────────┐
+  │        Service Layer            │
+  │  Workflow Engine  Sprint Logic  │
+  │  Notifications   Locking        │
+  └────────────────┬────────────────┘
+                   │
+  ┌────────────────▼────────────────┐
+  │       Repository Layer          │
+  │     Raw SQL via node-postgres   │
+  └────────────────┬────────────────┘
+                   │
+  ┌────────────────▼────────────────┐
+  │        PostgreSQL 16            │
+  │         15 tables               │
+  └─────────────────────────────────┘
 ```
 
-Swagger UI at:
+Every request passes through Express, gets verified by the auth middleware, validated, then hits the service layer where business logic runs. The repository layer handles all raw SQL. Socket.io runs alongside Express on the same server and pushes real-time events to connected browsers the moment anything changes on the board.
 
-```
-http://localhost:3000/api-docs
-```
+Workflow transition rules are stored as database rows, not application code. Project admins configure their own board rules through the API without any deployment needed.
+
+Concurrent edits are handled with optimistic locking — every issue has a version number that must match on every update. If two people edit the same issue at the same time, one succeeds and the other gets a clear conflict error and must retry.
 
 ---
 
 ## Commands
 
-| Command | Description |
+| Command | What it does |
 |---|---|
-| `docker-compose up -d` | Start all services |
-| `docker-compose down` | Stop all services |
-| `docker-compose down -v` | Stop and delete all data |
-| `docker-compose exec app npm run migrate` | Run migrations |
-| `docker-compose exec app npm run seed` | Load sample data |
-| `docker-compose exec app npm test` | Run tests |
+| `npm run dev` | Start development server |
+| `npm run migrate` | Run database migrations |
+| `npm run seed` | Load sample data |
+| `npm test` | Run the test suite |
+| `docker-compose up postgres postgres_test -d` | Start databases |
+| `docker-compose down -v` | Stop and wipe all data |
 
 ---
 
-## Reset
-
-```bash
-docker-compose down -v
-docker-compose up -d
-docker-compose exec app npm run migrate
-docker-compose exec app npm run seed
-```
+> **Want to know more about the project?**
+> Full architecture document, database design, API reference, and design decisions are available here:
+> [Project Documentation](https://docs.google.com/document/d/1EzQMiowhIOU0tlS1KGssvWL55hlIxQpXA-uQcU4l2wo/edit?tab=t.0)
+>
+> **Note:** You can use Gemini in Docs to answer any questions about the project directly inside the document.
