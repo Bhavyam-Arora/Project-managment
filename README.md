@@ -2,6 +2,8 @@
 
 A Jira-like project management backend built with Node.js, PostgreSQL, Socket.io, and JWT authentication.
 
+**Live Demo:** [https://pm-platform-api.onrender.com/api-docs](https://pm-platform-api.onrender.com/api-docs)
+
 ---
 
 ## Local Setup
